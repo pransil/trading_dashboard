@@ -75,8 +75,9 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
       
       try {
         let endpoint = '';
+        // Always fetch 5Y data for indicators to ensure enough historical data for calculations
         let params = new URLSearchParams({
-          timeframe: timeframe,
+          timeframe: '5Y',
           ...(simulatedDate && { simulated_date: simulatedDate })
         });
 
@@ -114,7 +115,21 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
 
         const result = await response.json();
         console.log(`${indicator} response data:`, result);
-        setIndicatorData(result.data || []);
+        
+        // Filter the indicator data to match the price data date range
+        let filteredData = result.data || [];
+        if (priceData && priceData.length > 0 && filteredData.length > 0) {
+          const firstPriceDate = priceData[0].date;
+          const lastPriceDate = priceData[priceData.length - 1].date;
+          
+          filteredData = filteredData.filter((item: any) => 
+            item.date >= firstPriceDate && item.date <= lastPriceDate
+          );
+          
+          console.log(`Filtered ${indicator} data from ${result.data?.length || 0} to ${filteredData.length} points`);
+        }
+        
+        setIndicatorData(filteredData);
       } catch (err) {
         console.error(`Error fetching ${indicator}:`, err);
         setError(err instanceof Error ? err.message : `Failed to fetch ${indicator}`);
@@ -124,7 +139,7 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
     };
 
     fetchIndicatorData();
-  }, [symbol, timeframe, simulatedDate, indicator]);
+  }, [symbol, timeframe, simulatedDate, indicator, priceData]);
 
   const getDataForIndicator = () => {
     switch (indicator) {
@@ -188,8 +203,24 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
     const yMin = minValue - padding;
     const yMax = maxValue + padding;
 
-    // Create scales
-    const xScale = (index: number) => (index / Math.max(macdData.length - 1, 1)) * chartWidth;
+    // Create scales for plotting - map MACD data points to price chart coordinates
+    const xScale = (index: number) => {
+      if (!priceData || priceData.length === 0) {
+        return (index / Math.max(macdData.length - 1, 1)) * chartWidth;
+      }
+      
+      // Find the position of this MACD data point in the price data
+      const macdDate = macdData[index]?.date;
+      const priceIndex = priceData.findIndex(p => p.date === macdDate);
+      
+      if (priceIndex >= 0) {
+        // Map to the same position as in the price chart
+        return (priceIndex / Math.max(priceData.length - 1, 1)) * chartWidth;
+      }
+      
+      // Fallback if date not found
+      return (index / Math.max(macdData.length - 1, 1)) * chartWidth;
+    };
     const yScale = (value: number) => {
       if (isNaN(value)) return chartHeight / 2;
       return chartHeight - ((value - yMin) / (yMax - yMin)) * chartHeight;
@@ -326,7 +357,11 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
                   rx={3}
                 />
                 <text x={5} y={12} fill="white" fontSize="10">
-                  {crosshairData.date}
+                  {(() => {
+                    const [year, month, day] = crosshairData.date.split('-').map(Number);
+                    const date = new Date(year, month - 1, day);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                  })()}
                 </text>
                 <text x={5} y={24} fill="white" fontSize="10">
                   MACD: {crosshairData.value.toFixed(3)}
@@ -353,8 +388,24 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
     const yMin = minValue - padding;
     const yMax = maxValue + padding;
 
-    // Create scales  
-    const xScale = (index: number) => (index / Math.max(validData.length - 1, 1)) * chartWidth;
+    // Create scales for plotting - map indicator data points to price chart coordinates
+    const xScale = (index: number) => {
+      if (!priceData || priceData.length === 0) {
+        return (index / Math.max(validData.length - 1, 1)) * chartWidth;
+      }
+      
+      // Find the position of this indicator data point in the price data
+      const indicatorDate = validData[index]?.date;
+      const priceIndex = priceData.findIndex(p => p.date === indicatorDate);
+      
+      if (priceIndex >= 0) {
+        // Map to the same position as in the price chart
+        return (priceIndex / Math.max(priceData.length - 1, 1)) * chartWidth;
+      }
+      
+      // Fallback if date not found
+      return (index / Math.max(validData.length - 1, 1)) * chartWidth;
+    };
     const yScale = (value: number) => {
       if (isNaN(value)) return chartHeight / 2;
       return chartHeight - ((value - yMin) / (yMax - yMin)) * chartHeight;
@@ -467,7 +518,11 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
                   rx={3}
                 />
                 <text x={5} y={12} fill="white" fontSize="10">
-                  {crosshairData.date}
+                  {(() => {
+                    const [year, month, day] = crosshairData.date.split('-').map(Number);
+                    const date = new Date(year, month - 1, day);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                  })()}
                 </text>
                 <text x={5} y={24} fill="white" fontSize="10">
                   {indicator}: {formatValue(crosshairData.value)}
@@ -507,7 +562,7 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
   };
 
   const getCrosshairData = (data: any[], yMin: number, yMax: number, chartHeight: number) => {
-    if (!mousePos || data.length === 0) return null;
+    if (!mousePos || data.length === 0 || !priceData || priceData.length === 0) return null;
     
     // Convert mouse position to data coordinates
     const chartX = mousePos.x - margin.left;
@@ -517,16 +572,16 @@ const IndicatorPanel: React.FC<IndicatorPanelProps> = ({
       return null;
     }
     
-    // Calculate data index from x position
+    // Calculate position in price data coordinates
     const chartWidth = width - margin.left - margin.right;
-    const dataIndex = Math.round((chartX / chartWidth) * (data.length - 1));
-    const clampedIndex = Math.max(0, Math.min(dataIndex, data.length - 1));
+    const priceDataIndex = Math.round((chartX / chartWidth) * (priceDataLength - 1));
+    const clampedPriceIndex = Math.max(0, Math.min(priceDataIndex, priceDataLength - 1));
     
     // Calculate value from y position
     const valueFromY = yMax - (chartY / chartHeight) * (yMax - yMin);
     
-    // Get date from data
-    const dateStr = data[clampedIndex]?.date || '';
+    // Get date from price data to ensure alignment
+    const dateStr = priceData && priceData[clampedPriceIndex] ? priceData[clampedPriceIndex].date : '';
     
     return {
       date: dateStr,

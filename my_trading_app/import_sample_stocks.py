@@ -4,6 +4,7 @@ Import a sample of stocks for testing
 """
 import os
 import sys
+from pathlib import Path
 sys.path.append('deliverables/src/backend')
 
 from models.database import init_db, SessionLocal
@@ -27,10 +28,10 @@ def import_sample_stocks():
     try:
         successful = 0
         for symbol in test_stocks:
-            csv_path = f"/Users/patransil/dev/prediction/kaggle_stock_data/{symbol}.csv"
-            if os.path.exists(csv_path):
+            csv_path = Path(__file__).parent / "data" / "kaggle_stock_data" / "stocks" / f"{symbol}.csv"
+            if csv_path.exists():
                 logger.info(f"Importing {symbol}...")
-                result = import_stock_from_csv(csv_path, symbol, db)
+                result = import_stock_from_csv(str(csv_path), symbol, db)
                 if result:
                     successful += 1
                     logger.info(f"✓ {symbol} imported successfully")

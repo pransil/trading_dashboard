@@ -502,7 +502,11 @@ const CandlestickChart: React.FC<CandlestickChartProps> = ({
               fontSize="10"
               textAnchor="middle"
             >
-              {new Date(candle.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {(() => {
+                const [year, month, day] = candle.date.split('-').map(Number);
+                const date = new Date(year, month - 1, day);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              })()}
             </text>
           );
         })}
@@ -584,7 +588,11 @@ const CandlestickChart: React.FC<CandlestickChartProps> = ({
                   rx={3}
                 />
                 <text x={5} y={12} fill="white" fontSize="10">
-                  {crosshairData.date}
+                  {(() => {
+                    const [year, month, day] = crosshairData.date.split('-').map(Number);
+                    const date = new Date(year, month - 1, day);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                  })()}
                 </text>
                 <text x={5} y={24} fill="white" fontSize="10">
                   ${crosshairData.price.toFixed(2)}

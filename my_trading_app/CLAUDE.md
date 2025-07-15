@@ -62,6 +62,15 @@ npm test
 npm test -- --watch
 ```
 
+### Quick Start/Stop Scripts
+```bash
+# Start both frontend and backend servers with proper cleanup
+./scripts/start.sh
+
+# Stop all servers and clean up ports
+./scripts/stop.sh
+```
+
 ### Database Operations
 ```bash
 # Database is SQLite, located at: my_trading_app/trading_dashboard.db

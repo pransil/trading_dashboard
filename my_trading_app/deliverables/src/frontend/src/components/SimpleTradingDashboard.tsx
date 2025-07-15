@@ -18,9 +18,7 @@ import {
   Select,
   FormControl,
   Alert,
-  Checkbox,
-  ListItemText,
-  InputLabel,
+  TextField,
 } from '@mui/material';
 import { TrendingUp, TrendingDown } from '@mui/icons-material';
 import CandlestickChart from './CandlestickChart';
@@ -62,6 +60,9 @@ const SimpleTradingDashboard: React.FC = () => {
   const [priceDataLength, setPriceDataLength] = useState<number>(0);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['EMA 12', 'EMA 26']);
   const [selectedIndicator, setSelectedIndicator] = useState<string>('MACD');
+  const [simulatedDate, setSimulatedDate] = useState<string | null>(null);
+  const [minDate, setMinDate] = useState<string>('');
+  const [maxDate, setMaxDate] = useState<string>('');
 
   const API_BASE = 'http://localhost:8000/api';
 
@@ -82,17 +83,46 @@ const SimpleTradingDashboard: React.FC = () => {
     fetchStocks();
   }, []);
 
-  // Fetch stock details when selection changes
+  // Fetch stock details and date range when selection changes
   useEffect(() => {
     const fetchStockDetail = async () => {
       if (!selectedStock) return;
       
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE}/stocks/${selectedStock}/details`);
-        if (!response.ok) throw new Error('Failed to fetch stock details');
-        const data = await response.json();
-        setStockDetail(data);
+        
+        // Fetch stock details
+        const detailsResponse = await fetch(`${API_BASE}/stocks/${selectedStock}/details`);
+        if (!detailsResponse.ok) throw new Error('Failed to fetch stock details');
+        const detailsData = await detailsResponse.json();
+        setStockDetail(detailsData);
+        
+        // Fetch available date range for this stock
+        const rangeResponse = await fetch(`${API_BASE}/data/${selectedStock}/range`);
+        if (!rangeResponse.ok) {
+          // If range endpoint doesn't exist, try to get it from data
+          const dataResponse = await fetch(`${API_BASE}/data/${selectedStock}?timeframe=5Y`);
+          if (dataResponse.ok) {
+            const dataResult = await dataResponse.json();
+            if (dataResult.data && dataResult.data.length > 0) {
+              setMinDate(dataResult.data[0].date);
+              setMaxDate(dataResult.data[dataResult.data.length - 1].date);
+              // Set simulated date to the last available date by default
+              if (!simulatedDate) {
+                setSimulatedDate(dataResult.data[dataResult.data.length - 1].date);
+              }
+            }
+          }
+        } else {
+          const rangeData = await rangeResponse.json();
+          setMinDate(rangeData.min_date || '');
+          setMaxDate(rangeData.max_date || '');
+          // Set simulated date to the last available date by default
+          if (!simulatedDate && rangeData.max_date) {
+            setSimulatedDate(rangeData.max_date);
+          }
+        }
+        
         setError('');
       } catch (err) {
         setError(`Failed to fetch details for ${selectedStock}`);
@@ -102,6 +132,7 @@ const SimpleTradingDashboard: React.FC = () => {
       }
     };
     fetchStockDetail();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStock]);
 
   // Fetch watchlist
@@ -237,7 +268,7 @@ const SimpleTradingDashboard: React.FC = () => {
               <CandlestickChart 
                 symbol={selectedStock} 
                 timeframe={timeframe}
-                simulatedDate={null}
+                simulatedDate={simulatedDate}
                 onDataChange={(data, length) => {
                   setPriceData(data);
                   setPriceDataLength(length);
@@ -253,7 +284,7 @@ const SimpleTradingDashboard: React.FC = () => {
               <IndicatorPanel 
                 symbol={selectedStock} 
                 timeframe={timeframe}
-                simulatedDate={null}
+                simulatedDate={simulatedDate}
                 priceData={priceData}
                 priceDataLength={priceDataLength}
                 indicator={selectedIndicator}
@@ -269,9 +300,59 @@ const SimpleTradingDashboard: React.FC = () => {
             
             {/* Stock Details */}
             <Paper sx={{ p: 1.5, minHeight: '300px', backgroundColor: '#0a0a0a', color: 'white' }}>
-              <Typography variant="h5" gutterBottom sx={{ color: '#4caf50', fontWeight: 'bold' }}>
-                {stockDetail?.symbol || selectedStock}
-              </Typography>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <Typography variant="h5" sx={{ color: '#4caf50', fontWeight: 'bold' }}>
+                  {stockDetail?.symbol || selectedStock}
+                </Typography>
+                
+                {/* Date Picker - Always visible */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.875rem' }}>
+                    Display Date:
+                  </Typography>
+                  <TextField
+                    type="date"
+                    value={simulatedDate || ''}
+                    onChange={(e) => setSimulatedDate(e.target.value)}
+                    placeholder="YYYY-MM-DD"
+                    inputProps={{
+                      min: minDate,
+                      max: maxDate,
+                      style: { textAlign: 'center' },
+                    }}
+                  sx={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    borderRadius: 1,
+                    minWidth: '140px',
+                    '& .MuiInputBase-input': {
+                      color: 'white',
+                      padding: '8px 12px',
+                      fontSize: '0.875rem',
+                      fontFamily: 'monospace',
+                      '&::placeholder': {
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        opacity: 1,
+                      },
+                    },
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                    },
+                    '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#4caf50',
+                    },
+                    // Style for date input buttons (calendar icon, etc)
+                    '& input[type="date"]::-webkit-calendar-picker-indicator': {
+                      filter: 'invert(0.8)',
+                      cursor: 'pointer',
+                    },
+                  }}
+                  size="small"
+                />
+                </div>
+              </div>
               
               {loading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: '32px' }}>

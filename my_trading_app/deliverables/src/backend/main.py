@@ -6,8 +6,9 @@ import logging
 from routers import stocks, data, indicators, watchlist
 from models.database import init_db
 from services.data_import import import_all_stocks
+from config import ALLOWED_ORIGINS, LOG_LEVEL
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=getattr(logging, LOG_LEVEL))
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +34,7 @@ app = FastAPI(
 # Configure CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React dev server
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -5,7 +5,7 @@ A web-based trading dashboard for visualizing historical stock data with technic
 ## Features
 
 - 📊 **Candlestick Charts** - OHLC data visualization with volume bars
-- 📈 **Technical Indicators** - EMA (Exponential Moving Average) and MACD indicators
+- 📈 **Technical Indicators** - EMA, SMA, MACD, RSI, VIX, OBV, VPT indicators
 - 📅 **Time Travel** - Select any historical date as "current" for backtesting
 - 📋 **Watchlist** - Monitor multiple stocks with real-time metrics
 - 🔍 **Stock Search** - Quick search and selection from available stocks
@@ -53,6 +53,13 @@ python import_sample_stocks.py
 
 ### 4. Start the servers
 
+**Option A - Quick Start (Recommended):**
+```bash
+./scripts/start.sh
+```
+
+**Option B - Manual Start:**
+
 **Backend (Terminal 1):**
 ```bash
 cd deliverables/src/backend
@@ -65,6 +72,11 @@ cd deliverables/src/frontend
 npm start
 ```
 
+**Stop all servers:**
+```bash
+./scripts/stop.sh
+```
+
 The application will be available at http://localhost:3000  
 API documentation at http://localhost:8000/docs
 
@@ -72,8 +84,13 @@ API documentation at http://localhost:8000/docs
 
 - `GET /api/stocks` - List all available stocks
 - `GET /api/data/{symbol}` - Get historical data for a stock
-- `GET /api/indicators/ema/{symbol}` - Calculate EMA for a stock
-- `GET /api/indicators/macd/{symbol}` - Calculate MACD for a stock
+- `GET /api/indicators/{symbol}/ema` - Calculate EMA for a stock
+- `GET /api/indicators/{symbol}/sma` - Calculate SMA for a stock  
+- `GET /api/indicators/{symbol}/macd` - Calculate MACD for a stock
+- `GET /api/indicators/{symbol}/rsi` - Calculate RSI for a stock
+- `GET /api/indicators/{symbol}/vix` - Calculate VIX volatility for a stock
+- `GET /api/indicators/{symbol}/obv` - Calculate On-Balance Volume for a stock
+- `GET /api/indicators/{symbol}/vpt` - Calculate Volume Price Trend for a stock
 - `GET /api/watchlist` - Manage user watchlist
 
 All endpoints support `simulated_date` parameter for time travel functionality.
